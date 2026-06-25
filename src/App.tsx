@@ -634,20 +634,33 @@ export default function App() {
     if (!ctx) return;
 
     let animationFrameId: number;
-    let particles: { x: number; y: number; r: number; d: number; speed: number; drift: number }[] = [];
+    let particles: {
+      x: number;
+      y: number;
+      r: number;
+      speed: number;
+      angle: number;
+      swing: number;
+      swingAmount: number;
+      opacity: number;
+      type: "circle" | "star";
+    }[] = [];
 
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       particles = [];
-      for (let i = 0; i < 40; i++) {
+      for (let i = 0; i < 55; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          r: Math.random() * 1.5 + 0.5,
-          d: Math.random() * canvas.height,
-          speed: Math.random() * 0.4 + 0.1,
-          drift: Math.random() * 0.4 - 0.2
+          r: Math.random() * 2.2 + 0.8, // 0.8px to 3.0px
+          speed: Math.random() * 0.6 + 0.3, // 0.3 to 0.9 px/frame (very gentle drift)
+          angle: Math.random() * Math.PI * 2,
+          swing: Math.random() * 0.015 + 0.005, // sway speed
+          swingAmount: Math.random() * 0.5 + 0.2, // sway distance
+          opacity: Math.random() * 0.45 + 0.3, // opacity 0.3 to 0.75
+          type: Math.random() > 0.85 ? "star" : "circle"
         });
       }
     };
@@ -657,28 +670,45 @@ export default function App() {
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "rgba(168, 85, 247, 0.25)"; // soft violet glowing sparks
-      ctx.beginPath();
+      
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
-        ctx.moveTo(p.x, p.y);
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2, true);
+        
+        ctx.fillStyle = `rgba(255, 255, 255, ${p.opacity})`;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${p.opacity * 0.6})`;
+        ctx.lineWidth = 1;
+
+        if (p.type === "star") {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y - p.r);
+          ctx.lineTo(p.x, p.y + p.r);
+          ctx.moveTo(p.x - p.r, p.y);
+          ctx.lineTo(p.x + p.r, p.y);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2, true);
+          ctx.fill();
+        }
 
         p.y += p.speed;
-        p.x += p.drift;
+        p.angle += p.swing;
+        p.x += Math.sin(p.angle) * p.swingAmount;
 
-        if (p.y > canvas.height) {
+        if (p.y > canvas.height || p.x < -10 || p.x > canvas.width + 10) {
           particles[i] = {
             x: Math.random() * canvas.width,
-            y: 0,
+            y: -10,
             r: p.r,
-            d: p.d,
             speed: p.speed,
-            drift: p.drift
+            angle: Math.random() * Math.PI * 2,
+            swing: p.swing,
+            swingAmount: p.swingAmount,
+            opacity: p.opacity,
+            type: p.type
           };
         }
       }
-      ctx.fill();
       animationFrameId = requestAnimationFrame(draw);
     };
 
@@ -692,6 +722,11 @@ export default function App() {
 
   return (
     <div className="text-slate-100 flex flex-col min-h-screen relative overflow-x-hidden selection:bg-purple-500 selection:text-white pb-6 font-sans">
+      {/* Background Aurora Glows */}
+      <div className="aurora-bg-glow aurora-pink" />
+      <div className="aurora-bg-glow aurora-blue" />
+      <div className="aurora-bg-glow aurora-purple" />
+
       {/* Interactive canvas backdrop */}
       <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-10" />
 
@@ -742,9 +777,9 @@ export default function App() {
       <div className="relative z-20 flex-1 max-w-7xl w-full mx-auto flex flex-col lg:flex-row gap-6 p-4">
         {/* Left sidebar directory navigation panel */}
         <aside className="w-full lg:w-72 flex-shrink-0">
-          <div className="bg-slate-900/40 backdrop-blur-xl rounded-3xl p-4 border border-slate-800/80 shadow-2xl sticky top-28 space-y-4">
+          <div className="bg-slate-950/40 backdrop-blur-2xl rounded-3xl p-4 border border-white/10 shadow-2xl sticky top-28 space-y-4">
             <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Danh mục hành trình</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3">Danh mục hành trình</p>
             </div>
             
             <nav className="space-y-1.5">
@@ -768,10 +803,10 @@ export default function App() {
                       showToast("Đã tự động trả về vai trò Học sinh.", "success");
                     }
                   }}
-                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-left text-xs font-bold transition-all ${
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-left text-xs font-bold transition-all border ${
                     activeModule === m.id && currentRole === Role.HOC_SINH
-                      ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-pink-300 border border-pink-500/30 shadow-md"
-                      : "text-slate-400 hover:text-white hover:bg-slate-800/40"
+                      ? "bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-indigo-500/10 text-pink-300 border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.15)]"
+                      : "text-slate-300 border-transparent hover:text-white hover:bg-white/5"
                   }`}
                 >
                   <span className="flex items-center gap-2.5">
@@ -791,18 +826,18 @@ export default function App() {
                 </button>
               ))}
 
-              <div className="h-[1px] bg-slate-800/80 my-3"></div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3 py-1">Hệ thống phân quyền</p>
+              <div className="h-[1px] bg-white/10 my-3"></div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3 py-1">Hệ thống phân quyền</p>
 
               <button
                 onClick={() => {
                   setCurrentRole(Role.GIAO_VIEN);
                   setActiveModule(10);
                 }}
-                className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-2xl text-left text-xs font-bold transition-all ${
+                className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-2xl text-left text-xs font-bold transition-all border ${
                   activeModule === 10
-                    ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 border border-emerald-500/30 shadow-md"
-                    : "text-slate-500 hover:text-emerald-400 hover:bg-slate-800/40"
+                    ? "bg-gradient-to-r from-emerald-500/15 to-teal-500/15 text-emerald-300 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                    : "text-slate-400 border-transparent hover:text-emerald-300 hover:bg-white/5"
                 }`}
               >
                 <NotebookTabs className="w-4 h-4 text-emerald-500" />
@@ -814,10 +849,10 @@ export default function App() {
                   setCurrentRole(Role.PHU_HUYNH);
                   setActiveModule(11);
                 }}
-                className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-2xl text-left text-xs font-bold transition-all ${
+                className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-2xl text-left text-xs font-bold transition-all border ${
                   activeModule === 11
-                    ? "bg-gradient-to-r from-orange-500/20 to-pink-500/20 text-orange-300 border border-orange-500/30 shadow-md"
-                    : "text-slate-500 hover:text-orange-400 hover:bg-slate-800/40"
+                    ? "bg-gradient-to-r from-orange-500/15 to-pink-500/15 text-orange-300 border-orange-500/30 shadow-[0_0_15px_rgba(249,115,22,0.15)]"
+                    : "text-slate-400 border-transparent hover:text-orange-300 hover:bg-white/5"
                 }`}
               >
                 <Baby className="w-4 h-4 text-orange-500" />
@@ -829,10 +864,10 @@ export default function App() {
                   setCurrentRole(Role.ADMIN);
                   setActiveModule(12);
                 }}
-                className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-2xl text-left text-xs font-bold transition-all ${
+                className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-2xl text-left text-xs font-bold transition-all border ${
                   activeModule === 12
-                    ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-500/30 shadow-md"
-                    : "text-slate-500 hover:text-cyan-400 hover:bg-slate-800/40"
+                    ? "bg-gradient-to-r from-cyan-500/15 to-blue-500/15 text-cyan-300 border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.15)]"
+                    : "text-slate-400 border-transparent hover:text-cyan-300 hover:bg-white/5"
                 }`}
               >
                 <ShieldCheck className="w-4 h-4 text-cyan-500" />
