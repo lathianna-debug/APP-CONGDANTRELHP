@@ -61,9 +61,7 @@ export default function App() {
   };
 
   // Authentication states
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem("lhp_logged_in") === "true";
-  });
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
 
   const [studentProfileId, setStudentProfileId] = useState<string>(() => {
     return localStorage.getItem("lhp_student_profile_id") || "default_student";
@@ -158,6 +156,35 @@ export default function App() {
       goodDeedsCount: 15
     };
   });
+
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState(profile.name);
+  const [editClass, setEditClass] = useState(profile.className);
+
+  const handleSaveProfile = () => {
+    if (!editName.trim()) {
+      showToast("Vui lòng nhập tên hợp lệ!", "error");
+      return;
+    }
+    const updatedProfile = {
+      ...profile,
+      name: editName.trim(),
+      className: editClass.trim() || "Tự do"
+    };
+    setProfile(updatedProfile);
+    localStorage.setItem("lhp_student_profile", JSON.stringify(updatedProfile));
+    
+    let pid = "default_student";
+    if (updatedProfile.name !== "Trần Minh Anh" || updatedProfile.className !== "7A5") {
+      pid = `student_${updatedProfile.name.toLowerCase().replace(/\s+/g, '_')}_${updatedProfile.className.toLowerCase()}`;
+    }
+    setStudentProfileId(pid);
+    localStorage.setItem("lhp_student_profile_id", pid);
+
+    setIsEditingProfile(false);
+    showToast("Đã cập nhật danh tính tham gia!", "success");
+    addSystemLog(`Học sinh cập nhật danh tính thành: ${updatedProfile.name} - Lớp ${updatedProfile.className}`);
+  };
 
   // Database lists with LocalStorage persistence
   const [goodDeeds, setGoodDeeds] = useState<GoodDeed[]>(() => {
@@ -856,7 +883,6 @@ export default function App() {
               }
             }}
             profile={profile}
-            onLogout={handleLogout}
           />
 
       {/* Primary Shell wrapper Grid */}
@@ -864,6 +890,71 @@ export default function App() {
         {/* Left sidebar directory navigation panel */}
         <aside className="w-full lg:w-72 flex-shrink-0">
           <div className="bg-slate-950/40 backdrop-blur-2xl rounded-3xl p-4 border border-white/10 shadow-2xl sticky top-28 space-y-4">
+            
+            {/* Participant Identity Panel */}
+            <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-3.5 space-y-2.5 text-left">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping"></span>
+                  Danh tính tham gia
+                </span>
+                {!isEditingProfile ? (
+                  <button
+                    onClick={() => {
+                      setEditName(profile.name);
+                      setEditClass(profile.className);
+                      setIsEditingProfile(true);
+                    }}
+                    className="text-[10px] text-cyan-400 font-extrabold hover:underline cursor-pointer"
+                  >
+                    Thay đổi
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSaveProfile}
+                    className="text-[10px] text-emerald-400 font-black hover:underline cursor-pointer"
+                  >
+                    Lưu
+                  </button>
+                )}
+              </div>
+
+              {!isEditingProfile ? (
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-cyan-400 to-indigo-500 flex items-center justify-center font-black text-slate-950 text-xs shadow-md">
+                    {profile.name.split(" ").pop()?.substring(0, 2).toUpperCase() || "LHP"}
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-slate-200 text-xs">{profile.name}</h4>
+                    <p className="text-[10px] text-slate-400 font-medium">Lớp {profile.className} • THCS LHP</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2 text-xs">
+                  <div className="space-y-1">
+                    <label className="text-[9px] text-slate-400 font-semibold" htmlFor="sidebar-edit-name">Họ và tên</label>
+                    <input
+                      type="text"
+                      id="sidebar-edit-name"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full text-xs p-1.5 bg-slate-950 border border-slate-800 rounded outline-none text-slate-100 focus:border-cyan-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] text-slate-400 font-semibold" htmlFor="sidebar-edit-class">Lớp</label>
+                    <input
+                      type="text"
+                      id="sidebar-edit-class"
+                      value={editClass}
+                      onChange={(e) => setEditClass(e.target.value)}
+                      className="w-full text-xs p-1.5 bg-slate-950 border border-slate-800 rounded outline-none text-slate-100 focus:border-cyan-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3">Danh mục hành trình</p>
             </div>
