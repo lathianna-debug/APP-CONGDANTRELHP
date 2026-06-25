@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Role, StudentProfile, GoodDeed, Quest, Club, ClubMessage, QuizQuestion } from "./types";
 import { Header } from "./components/Header";
+import { LoginScreen } from "./components/LoginScreen";
 import { supabase } from "./supabaseClient";
 import { MoralTree } from "./components/MoralTree";
 import { QuizArena } from "./components/QuizArena";
@@ -57,6 +58,72 @@ export default function App() {
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3500);
+  };
+
+  // Authentication states
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem("lhp_logged_in") === "true";
+  });
+
+  const [studentProfileId, setStudentProfileId] = useState<string>(() => {
+    return localStorage.getItem("lhp_student_profile_id") || "default_student";
+  });
+
+  const handleLoginSuccess = (session: {
+    name: string;
+    role: Role;
+    className?: string;
+    profile?: StudentProfile;
+  }) => {
+    setIsLoggedIn(true);
+    localStorage.setItem("lhp_logged_in", "true");
+    
+    const user = { name: session.name, role: session.role, className: session.className };
+    localStorage.setItem("lhp_logged_user", JSON.stringify(user));
+
+    setCurrentRole(session.role);
+    localStorage.setItem("lhp_current_role", session.role);
+
+    if (session.role === Role.HOC_SINH) {
+      let pid = "default_student";
+      if (session.profile) {
+        if (session.name !== "Trần Minh Anh" || session.className !== "7A5") {
+          pid = `student_${session.name.toLowerCase().replace(/\s+/g, '_')}_${session.className?.toLowerCase()}`;
+        }
+        setProfile(session.profile);
+        localStorage.setItem("lhp_student_profile", JSON.stringify(session.profile));
+      }
+      setStudentProfileId(pid);
+      localStorage.setItem("lhp_student_profile_id", pid);
+      setActiveModule(1); // default student home
+    } else if (session.role === Role.GIAO_VIEN) {
+      setActiveModule(10);
+    } else if (session.role === Role.PHU_HUYNH) {
+      setActiveModule(11);
+    } else if (session.role === Role.ADMIN) {
+      setActiveModule(12);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem("lhp_logged_in");
+    localStorage.removeItem("lhp_logged_user");
+    localStorage.removeItem("lhp_current_role");
+    localStorage.removeItem("lhp_student_profile_id");
+    localStorage.removeItem("lhp_student_profile");
+    setStudentProfileId("default_student");
+    setProfile({
+      name: "Trần Minh Anh",
+      className: "7A5",
+      xp: 2350,
+      level: 12,
+      completedQuests: ["q_daily_1"],
+      joinedClubs: ["CLB Đại sứ xanh học đường"],
+      unlockedBadges: ["b1", "b2"],
+      goodDeedsCount: 15
+    });
+    showToast("Đã đăng xuất khỏi hệ thống.", "success");
   };
 
   // Active role and view state
@@ -169,10 +236,11 @@ export default function App() {
         console.log("Initializing Supabase connection...");
         
         // 1. Sync student profile
+        const currentStudentId = localStorage.getItem("lhp_student_profile_id") || "default_student";
         const { data: profileData, error: profileErr } = await supabase
           .from("student_profiles")
           .select("*")
-          .eq("id", "default_student")
+          .eq("id", currentStudentId)
           .maybeSingle();
 
         if (profileErr) {
@@ -300,7 +368,7 @@ export default function App() {
         await supabase
           .from("student_profiles")
           .upsert({
-            id: "default_student",
+            id: studentProfileId,
             name: profile.name,
             className: profile.className,
             xp: profile.xp,
@@ -315,11 +383,12 @@ export default function App() {
       }
     }
     syncProfile();
-  }, [profile, supabaseActive]);
+  }, [profile, supabaseActive, studentProfileId]);
 
   useEffect(() => {
     localStorage.setItem("lhp_current_role", currentRole);
     localStorage.setItem("lhp_active_module", activeModule.toString());
+    localStorage.setItem("lhp_student_profile_id", studentProfileId);
     localStorage.setItem("lhp_student_profile", JSON.stringify(profile));
     localStorage.setItem("lhp_good_deeds", JSON.stringify(goodDeeds));
     localStorage.setItem("lhp_quests", JSON.stringify(quests));
@@ -329,7 +398,7 @@ export default function App() {
     localStorage.setItem("lhp_encouragements", JSON.stringify(encouragements));
     localStorage.setItem("lhp_admin_logged", adminLoggedIn ? "true" : "false");
     if (lastWatered) localStorage.setItem("lhp_last_watered", lastWatered);
-  }, [currentRole, activeModule, profile, goodDeeds, quizzes, quests, clubs, clubMessages, encouragements, adminLoggedIn, lastWatered]);
+  }, [currentRole, activeModule, studentProfileId, profile, goodDeeds, quizzes, quests, clubs, clubMessages, encouragements, adminLoggedIn, lastWatered]);
 
   const addSystemLog = (message: string) => {
     const time = new Date().toLocaleTimeString();
@@ -747,31 +816,36 @@ export default function App() {
         ))}
       </div>
 
-      {/* Primary Header Component */}
-      <Header
-        currentRole={currentRole}
-        onRoleChange={(role) => {
-          setCurrentRole(role);
-          addSystemLog(`Chuyển đổi vai trò sang: ${role}`);
-          if (role === Role.GIAO_VIEN) {
-            setActiveModule(10);
-            showToast("Đã chuyển đổi sang cổng Nghiệp vụ Giáo viên!", "success");
-          } else if (role === Role.PHU_HUYNH) {
-            setActiveModule(11);
-            showToast("Đã đồng bộ cổng thông tin Phụ huynh con Trần Minh Anh!", "success");
-          } else if (role === Role.ADMIN) {
-            setActiveModule(12);
-            if (adminLoggedIn) {
-              showToast("Đã kết nối trạm quản trị điều hành.", "success");
-            } else {
-              showToast("Vui lòng nhập mật mã quản trị viên (admin/admin)!", "error");
-            }
-          } else {
-            setActiveModule(1);
-          }
-        }}
-        profile={profile}
-      />
+      {!isLoggedIn ? (
+        <LoginScreen onLoginSuccess={handleLoginSuccess} showToast={showToast} />
+      ) : (
+        <>
+          {/* Primary Header Component */}
+          <Header
+            currentRole={currentRole}
+            onRoleChange={(role) => {
+              setCurrentRole(role);
+              addSystemLog(`Chuyển đổi vai trò sang: ${role}`);
+              if (role === Role.GIAO_VIEN) {
+                setActiveModule(10);
+                showToast("Đã chuyển đổi sang cổng Nghiệp vụ Giáo viên!", "success");
+              } else if (role === Role.PHU_HUYNH) {
+                setActiveModule(11);
+                showToast("Đã đồng bộ cổng thông tin Phụ huynh con Trần Minh Anh!", "success");
+              } else if (role === Role.ADMIN) {
+                setActiveModule(12);
+                if (adminLoggedIn) {
+                  showToast("Đã kết nối trạm quản trị điều hành.", "success");
+                } else {
+                  showToast("Vui lòng nhập mật mã quản trị viên (admin/admin)!", "error");
+                }
+              } else {
+                setActiveModule(1);
+              }
+            }}
+            profile={profile}
+            onLogout={handleLogout}
+          />
 
       {/* Primary Shell wrapper Grid */}
       <div className="relative z-20 flex-1 max-w-7xl w-full mx-auto flex flex-col lg:flex-row gap-6 p-4">
@@ -1440,6 +1514,8 @@ export default function App() {
           </div>
         </div>
       </footer>
+        </>
+      )}
     </div>
   );
 }

@@ -1,14 +1,15 @@
 import React from "react";
 import { Role, StudentProfile } from "../types";
-import { GraduationCap, Scale, Heart, Zap, Smile, Globe, Sparkles } from "lucide-react";
+import { GraduationCap, Scale, Heart, Zap, Smile, Globe, Sparkles, LogOut } from "lucide-react";
 
 interface HeaderProps {
   currentRole: Role;
   onRoleChange: (role: Role) => void;
   profile: StudentProfile;
+  onLogout?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentRole, onRoleChange, profile }) => {
+export const Header: React.FC<HeaderProps> = ({ currentRole, onRoleChange, profile, onLogout }) => {
   return (
     <>
       {/* TOP VALUE BAR (Giá trị cốt lõi phong cách Cyber) */}
@@ -123,6 +124,18 @@ export const Header: React.FC<HeaderProps> = ({ currentRole, onRoleChange, profi
                 <span className="text-white font-mono">{profile.xp.toLocaleString()}</span> XP
               </span>
             </div>
+
+            {/* Logout Button */}
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-white px-4 py-2 rounded-2xl text-xs font-extrabold border border-rose-500/30 hover:border-rose-500/50 transition-all cursor-pointer active:scale-95 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+                title="Đăng xuất khỏi hệ thống"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Đăng xuất</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
