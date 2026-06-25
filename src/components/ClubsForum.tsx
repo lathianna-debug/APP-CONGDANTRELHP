@@ -31,6 +31,10 @@ interface ClubsForumProps {
     fileType?: "image" | "document"
   ) => void;
   onReportContribution: (clubName: string, text: string, xp: number) => void;
+  isGlobalEditMode?: boolean;
+  onAddClub?: (club: Club) => void;
+  onUpdateClub?: (name: string, updated: Club) => void;
+  onDeleteClub?: (name: string) => void;
 }
 
 export const ClubsForum: React.FC<ClubsForumProps> = ({
@@ -39,7 +43,11 @@ export const ClubsForum: React.FC<ClubsForumProps> = ({
   clubMessages,
   onJoinClub,
   onPostMessage,
-  onReportContribution
+  onReportContribution,
+  isGlobalEditMode,
+  onAddClub,
+  onUpdateClub,
+  onDeleteClub
 }) => {
   const [selectedClubName, setSelectedClubName] = useState(clubs[0]?.name || "");
   const [messageText, setMessageText] = useState("");
@@ -51,6 +59,85 @@ export const ClubsForum: React.FC<ClubsForumProps> = ({
   const [chatFileName, setChatFileName] = useState("");
   const [chatFileType, setChatFileType] = useState<"image" | "document" | undefined>(undefined);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+
+  // ==================== CLB EDIT FORM STATE ====================
+  const [editingClubName, setEditingClubName] = useState<string | null>(null);
+  const [formClubName, setFormClubName] = useState("");
+  const [formClubDesc, setFormClubDesc] = useState("");
+  const [formClubIcon, setFormClubIcon] = useState<"laptop" | "scale" | "sprout" | "users">("users");
+  const [formClubColor, setFormClubColor] = useState("emerald");
+  const [formClubGoal, setFormClubGoal] = useState("");
+  const [formClubYt, setFormClubYt] = useState("");
+  const [formClubFileData, setFormClubFileData] = useState("");
+  const [formClubFileName, setFormClubFileName] = useState("");
+
+  const handleEditClubClick = (club: Club, e: React.MouseEvent) => {
+    e.stopPropagation(); // Stop selection of club
+    setEditingClubName(club.name);
+    setFormClubName(club.name);
+    setFormClubDesc(club.description);
+    setFormClubIcon(club.icon as any);
+    setFormClubColor(club.color);
+    setFormClubGoal(club.weeklyGoal);
+    setFormClubYt(club.youtubeUrl || "");
+    setFormClubFileData(club.fileData || "");
+    setFormClubFileName(club.fileName || "");
+
+    const el = document.getElementById("club-form-container");
+    if (el) el.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleCancelClubEdit = () => {
+    setEditingClubName(null);
+    setFormClubName("");
+    setFormClubDesc("");
+    setFormClubIcon("users");
+    setFormClubColor("emerald");
+    setFormClubGoal("");
+    setFormClubYt("");
+    setFormClubFileData("");
+    setFormClubFileName("");
+  };
+
+  const handleClubFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setFormClubFileData(reader.result);
+        setFormClubFileName(file.name);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClubFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formClubName.trim() || !formClubDesc.trim() || !formClubGoal.trim()) {
+      alert("Vui lòng điền đầy đủ Tên, Mô tả và Tiêu chí hoạt động!");
+      return;
+    }
+
+    const payload: Club = {
+      name: formClubName.trim(),
+      description: formClubDesc.trim(),
+      icon: formClubIcon,
+      color: formClubColor,
+      membersCount: editingClubName ? (clubs.find(c => c.name === editingClubName)?.membersCount || 10) : 10,
+      weeklyGoal: formClubGoal.trim(),
+      youtubeUrl: formClubYt.trim() || undefined,
+      fileData: formClubFileData || undefined,
+      fileName: formClubFileName || undefined
+    };
+
+    if (editingClubName) {
+      if (onUpdateClub) onUpdateClub(editingClubName, payload);
+    } else {
+      if (onAddClub) onAddClub(payload);
+    }
+    handleCancelClubEdit();
+  };
 
   const activeClub = clubs.find((c) => c.name === selectedClubName) || clubs[0];
   const activeMessages = clubMessages.filter((m) => m.clubName === selectedClubName);
@@ -161,7 +248,32 @@ export const ClubsForum: React.FC<ClubsForumProps> = ({
                     {getClubIcon(club.icon, club.color)}
                   </div>
                   <div className="space-y-1 text-left flex-1 min-w-0">
-                    <h3 className="font-bold text-slate-200 text-xs truncate">{club.name}</h3>
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-bold text-slate-200 text-xs truncate flex-1">{club.name}</h3>
+                      {isGlobalEditMode && (
+                        <div className="flex gap-1 ml-2 flex-shrink-0 relative z-20">
+                          <button
+                            onClick={(e) => handleEditClubClick(club, e)}
+                            className="p-1 bg-slate-950 hover:bg-purple-950 text-purple-400 hover:text-purple-300 rounded border border-slate-800 transition-all cursor-pointer"
+                            title="Sửa CLB"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`Bạn có chắc chắn muốn xóa Câu lạc bộ "${club.name}" và toàn bộ tin nhắn liên quan?`)) {
+                                if (onDeleteClub) onDeleteClub(club.name);
+                              }
+                            }}
+                            className="p-1 bg-slate-950 hover:bg-rose-950 text-rose-400 hover:text-rose-300 rounded border border-slate-800 transition-all cursor-pointer"
+                            title="Xóa CLB"
+                          >
+                            <Trash className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
                       {club.description}
                     </p>
@@ -182,6 +294,146 @@ export const ClubsForum: React.FC<ClubsForumProps> = ({
               </div>
             );
           })}
+
+          {/* Quick Edit CLB Form */}
+          {isGlobalEditMode && (
+            <div id="club-form-container" className="bg-slate-950/60 border border-purple-500/30 rounded-2xl p-4 space-y-4 text-left">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                <h4 className="font-bold text-xs text-purple-300 flex items-center gap-1">
+                  {editingClubName ? "📝 CẬP NHẬT CÂU LẠC BỘ" : "➕ TẠO CÂU LẠC BỘ MỚI"}
+                </h4>
+                {editingClubName && (
+                  <button type="button" onClick={handleCancelClubEdit} className="text-slate-500 hover:text-white">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <form onSubmit={handleClubFormSubmit} className="space-y-3 text-xs">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold block" htmlFor="form-club-name-input">Tên Câu lạc bộ</label>
+                  <input
+                    type="text"
+                    id="form-club-name-input"
+                    value={formClubName}
+                    onChange={(e) => setFormClubName(e.target.value)}
+                    className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-200 outline-none focus:border-purple-500"
+                    placeholder="Ví dụ: CLB Pháp luật xanh..."
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold block" htmlFor="form-club-desc-input">Mô tả ngắn</label>
+                  <textarea
+                    id="form-club-desc-input"
+                    value={formClubDesc}
+                    onChange={(e) => setFormClubDesc(e.target.value)}
+                    className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-200 outline-none focus:border-purple-500 h-16 resize-none"
+                    placeholder="Mô tả tôn chỉ hoạt động..."
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold block" htmlFor="form-club-goal-input">Mục tiêu hoạt động</label>
+                  <input
+                    type="text"
+                    id="form-club-goal-input"
+                    value={formClubGoal}
+                    onChange={(e) => setFormClubGoal(e.target.value)}
+                    className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-200 outline-none focus:border-purple-500"
+                    placeholder="Ví dụ: Tuyên truyền an toàn giao thông tuần này..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold block" htmlFor="form-club-icon-select">Biểu tượng</label>
+                    <select
+                      id="form-club-icon-select"
+                      value={formClubIcon}
+                      onChange={(e) => setFormClubIcon(e.target.value as any)}
+                      className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-200 outline-none"
+                    >
+                      <option value="users">Nhóm (Users)</option>
+                      <option value="laptop">Công nghệ (Laptop)</option>
+                      <option value="scale">Pháp lý (Scale)</option>
+                      <option value="sprout">Đạo đức (Sprout)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold block" htmlFor="form-club-color-select">Màu sắc chủ đạo</label>
+                    <select
+                      id="form-club-color-select"
+                      value={formClubColor}
+                      onChange={(e) => setFormClubColor(e.target.value)}
+                      className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-200 outline-none"
+                    >
+                      <option value="emerald">Emerald (Xanh lục)</option>
+                      <option value="cyan">Cyan (Xanh lam)</option>
+                      <option value="red">Red (Đỏ gạch)</option>
+                      <option value="purple">Purple (Tím)</option>
+                      <option value="amber">Amber (Vàng hổ phách)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Media Attachment Fields for CLB banner/intro */}
+                <div className="space-y-2 border-t border-slate-800/80 pt-2">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase block" htmlFor="form-club-yt-url">Đường dẫn Youtube giới thiệu (nếu có)</label>
+                    <input
+                      type="url"
+                      id="form-club-yt-url"
+                      value={formClubYt}
+                      onChange={(e) => setFormClubYt(e.target.value)}
+                      placeholder="Dán link youtube rèn luyện..."
+                      className="w-full text-[10px] p-2 bg-slate-900 border border-slate-800 rounded outline-none text-white focus:border-purple-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase block">Ảnh đại diện CLB (tải lên thiết bị)</label>
+                    <input
+                      type="file"
+                      id="club-file-upload-form"
+                      onChange={handleClubFileChange}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="club-file-upload-form"
+                      className="w-full text-center text-[10px] p-2 bg-slate-900 border border-slate-800 rounded outline-none text-slate-400 hover:text-white block cursor-pointer truncate"
+                    >
+                      {formClubFileName ? `Đã chọn: ${formClubFileName}` : "Tải ảnh từ thiết bị..."}
+                    </label>
+                    {formClubFileData && (
+                      <div className="mt-1 rounded overflow-hidden border border-slate-800 bg-slate-950 h-16">
+                        <img src={formClubFileData} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white font-extrabold rounded-xl text-[10px] shadow-md transition-all cursor-pointer"
+                  >
+                    {editingClubName ? "CẬP NHẬT CLB" : "TẠO CÂU LẠC BỘ"}
+                  </button>
+                  {editingClubName && (
+                    <button
+                      type="button"
+                      onClick={handleCancelClubEdit}
+                      className="px-3 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl text-[10px]"
+                    >
+                      HỦY
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          )}
         </div>
 
         {/* Right Side: Club Workspace (Details, Discussion & Contribution) */}

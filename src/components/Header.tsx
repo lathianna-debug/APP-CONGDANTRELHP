@@ -7,9 +7,11 @@ interface HeaderProps {
   onRoleChange: (role: Role) => void;
   profile: StudentProfile;
   onLogout?: () => void;
+  isGlobalEditMode: boolean;
+  onToggleGlobalEditMode: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentRole, onRoleChange, profile, onLogout }) => {
+export const Header: React.FC<HeaderProps> = ({ currentRole, onRoleChange, profile, onLogout, isGlobalEditMode, onToggleGlobalEditMode }) => {
   return (
     <>
       {/* TOP VALUE BAR (Giá trị cốt lõi phong cách Cyber) */}
@@ -112,6 +114,19 @@ export const Header: React.FC<HeaderProps> = ({ currentRole, onRoleChange, profi
                 Admin
               </button>
             </div>
+
+            {/* Quick Edit Mode Toggle */}
+            <button
+              onClick={onToggleGlobalEditMode}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-black border transition-all cursor-pointer active:scale-95 ${
+                isGlobalEditMode 
+                  ? "bg-purple-600/25 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.2)] animate-pulse" 
+                  : "bg-slate-950/50 border-white/10 text-slate-400 hover:text-white hover:border-white/20"
+              }`}
+              title="Bật/Tắt chế độ thêm, sửa, xóa trực tiếp nội dung tại các mục học tập và rèn luyện"
+            >
+              <span>{isGlobalEditMode ? "✍️ ĐANG CHỈNH SỬA" : "✏️ CHỈNH SỬA NHANH"}</span>
+            </button>
 
             {/* Live XP Points Indicator */}
             <div

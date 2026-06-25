@@ -63,6 +63,18 @@ export default function App() {
   // Authentication states
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
 
+  // Global Quick Edit Mode state
+  const [isGlobalEditMode, setIsGlobalEditMode] = useState<boolean>(() => {
+    return localStorage.getItem("lhp_global_edit_mode") === "true";
+  });
+
+  const handleToggleGlobalEditMode = () => {
+    const nextVal = !isGlobalEditMode;
+    setIsGlobalEditMode(nextVal);
+    localStorage.setItem("lhp_global_edit_mode", nextVal ? "true" : "false");
+    showToast(nextVal ? "Đã bật chế độ Chỉnh Sửa Nhanh toàn trang!" : "Đã tắt chế độ Chỉnh Sửa Nhanh!", "success");
+  };
+
   const [studentProfileId, setStudentProfileId] = useState<string>(() => {
     return localStorage.getItem("lhp_student_profile_id") || "default_student";
   });
@@ -205,6 +217,38 @@ export default function App() {
   const [clubs, setClubs] = useState<Club[]>(() => {
     const saved = localStorage.getItem("lhp_clubs");
     return saved ? JSON.parse(saved) : initialClubs;
+  });
+
+  const [materials, setMaterials] = useState<LearningMaterial[]>(() => {
+    const saved = localStorage.getItem("lhp_materials");
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: "mat_1",
+        title: "Cẩm nang Ứng xử Văn minh trên Môi trường Mạng",
+        desc: "Hướng dẫn chi tiết chuẩn mực giao tiếp tôn trọng, văn hóa ứng xử lịch thiệp, bảo mật thông tin và cách phòng chống bạo lực ngôn từ trên MXH.",
+        type: "Cẩm nang số",
+        size: "4.2 MB",
+        color: "from-purple-500 to-indigo-600",
+        youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      },
+      {
+        id: "mat_2",
+        title: "Sơ đồ tư duy 4 Nhóm Quyền Trẻ em Việt Nam",
+        desc: "Sơ đồ tư duy trực quan, sinh động tóm tắt 4 nhóm quyền cơ bản (Sống còn, Bảo vệ, Phát triển, Tham gia) giúp dễ dàng ghi nhớ.",
+        type: "Sơ đồ tư duy",
+        size: "1.8 MB",
+        color: "from-cyan-500 to-blue-600"
+      },
+      {
+        id: "mat_3",
+        title: "Truyện tranh: Hành trình của Hiệp sĩ Xanh LHP",
+        desc: "Truyện tranh ngắn kể về nhóm học sinh Lê Hồng Phong tham gia phân loại rác thải tại nguồn và bảo vệ môi trường trường học.",
+        type: "Truyện tranh",
+        size: "8.5 MB",
+        color: "from-emerald-500 to-teal-600"
+      }
+    ];
   });
 
   const [clubMessages, setClubMessages] = useState<ClubMessage[]>(() => {
@@ -421,11 +465,12 @@ export default function App() {
     localStorage.setItem("lhp_quests", JSON.stringify(quests));
     localStorage.setItem("lhp_quizzes", JSON.stringify(quizzes));
     localStorage.setItem("lhp_clubs", JSON.stringify(clubs));
+    localStorage.setItem("lhp_materials", JSON.stringify(materials));
     localStorage.setItem("lhp_club_messages", JSON.stringify(clubMessages));
     localStorage.setItem("lhp_encouragements", JSON.stringify(encouragements));
     localStorage.setItem("lhp_admin_logged", adminLoggedIn ? "true" : "false");
     if (lastWatered) localStorage.setItem("lhp_last_watered", lastWatered);
-  }, [currentRole, activeModule, studentProfileId, profile, goodDeeds, quizzes, quests, clubs, clubMessages, encouragements, adminLoggedIn, lastWatered]);
+  }, [currentRole, activeModule, studentProfileId, profile, goodDeeds, quizzes, quests, clubs, materials, clubMessages, encouragements, adminLoggedIn, lastWatered]);
 
   const addSystemLog = (message: string) => {
     const time = new Date().toLocaleTimeString();
@@ -719,6 +764,251 @@ export default function App() {
     }
   };
 
+  // CLUBS CRUD HANDLERS
+  const handleAdminAddClub = async (clubPayload: Club) => {
+    setClubs((prev) => [...prev, clubPayload]);
+    addSystemLog(`Admin thêm Câu lạc bộ mới: "${clubPayload.name}"`);
+    showToast(`Đã tạo câu lạc bộ "${clubPayload.name}" thành công!`, "success");
+
+    try {
+      await supabase.from("clubs").insert({
+        name: clubPayload.name,
+        icon: clubPayload.icon,
+        color: clubPayload.color,
+        description: clubPayload.description,
+        membersCount: clubPayload.membersCount,
+        weeklyGoal: clubPayload.weeklyGoal,
+        youtubeUrl: clubPayload.youtubeUrl || null,
+        fileData: clubPayload.fileData || null,
+        fileName: clubPayload.fileName || null
+      });
+    } catch (err) {
+      console.error("Error adding club to Supabase:", err);
+    }
+  };
+
+  const handleAdminUpdateClub = async (name: string, updatedPayload: Club) => {
+    setClubs((prev) =>
+      prev.map((c) => (c.name === name ? updatedPayload : c))
+    );
+    addSystemLog(`Admin cập nhật Câu lạc bộ: "${name}"`);
+    showToast(`Đã cập nhật câu lạc bộ "${updatedPayload.name}" thành công!`, "success");
+
+    try {
+      await supabase.from("clubs").update({
+        name: updatedPayload.name,
+        icon: updatedPayload.icon,
+        color: updatedPayload.color,
+        description: updatedPayload.description,
+        membersCount: updatedPayload.membersCount,
+        weeklyGoal: updatedPayload.weeklyGoal,
+        youtubeUrl: updatedPayload.youtubeUrl || null,
+        fileData: updatedPayload.fileData || null,
+        fileName: updatedPayload.fileName || null
+      }).eq("name", name);
+    } catch (err) {
+      console.error("Error updating club in Supabase:", err);
+    }
+  };
+
+  const handleAdminDeleteClub = async (name: string) => {
+    setClubs((prev) => prev.filter((c) => c.name !== name));
+    addSystemLog(`Admin xóa Câu lạc bộ: "${name}"`);
+    showToast(`Đã xóa câu lạc bộ "${name}" thành công!`, "success");
+
+    try {
+      await supabase.from("clubs").delete().eq("name", name);
+    } catch (err) {
+      console.error("Error deleting club from Supabase:", err);
+    }
+  };
+
+  // MATERIALS CRUD HANDLERS
+  const handleAdminAddMaterial = async (matPayload: Omit<LearningMaterial, "id">) => {
+    const newMat: LearningMaterial = {
+      ...matPayload,
+      id: "mat_cust_" + Date.now().toString()
+    };
+    setMaterials((prev) => [...prev, newMat]);
+    addSystemLog(`Admin thêm học liệu mới: "${newMat.title}"`);
+    showToast(`Đã thêm học liệu "${newMat.title}" thành công!`, "success");
+
+    try {
+      await supabase.from("materials").insert({
+        id: newMat.id,
+        title: newMat.title,
+        desc: newMat.desc,
+        type: newMat.type,
+        size: newMat.size || null,
+        color: newMat.color || null,
+        youtubeUrl: newMat.youtubeUrl || null,
+        fileData: newMat.fileData || null,
+        fileName: newMat.fileName || null
+      });
+    } catch (err) {
+      console.error("Error adding material to Supabase:", err);
+    }
+  };
+
+  const handleAdminUpdateMaterial = async (id: string, updatedPayload: Omit<LearningMaterial, "id">) => {
+    setMaterials((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, ...updatedPayload } : m))
+    );
+    addSystemLog(`Admin cập nhật học liệu ID: ${id}`);
+    showToast(`Đã cập nhật học liệu thành công!`, "success");
+
+    try {
+      await supabase.from("materials").update({
+        title: updatedPayload.title,
+        desc: updatedPayload.desc,
+        type: updatedPayload.type,
+        size: updatedPayload.size || null,
+        color: updatedPayload.color || null,
+        youtubeUrl: updatedPayload.youtubeUrl || null,
+        fileData: updatedPayload.fileData || null,
+        fileName: updatedPayload.fileName || null
+      }).eq("id", id);
+    } catch (err) {
+      console.error("Error updating material in Supabase:", err);
+    }
+  };
+
+  const handleAdminDeleteMaterial = async (id: string) => {
+    setMaterials((prev) => prev.filter((m) => m.id !== id));
+    addSystemLog(`Admin xóa học liệu ID: ${id}`);
+    showToast(`Đã xóa học liệu thành công!`, "success");
+
+    try {
+      await supabase.from("materials").delete().eq("id", id);
+    } catch (err) {
+      console.error("Error deleting material from Supabase:", err);
+    }
+  };
+
+  // QUESTS CRUD HANDLERS
+  const handleAdminAddQuest = async (questPayload: Omit<Quest, "id" | "completed">) => {
+    const newQ: Quest = {
+      ...questPayload,
+      id: "q_cust_" + Date.now().toString(),
+      completed: false,
+      isCustom: true
+    };
+    setQuests((prev) => [newQ, ...prev]);
+    addSystemLog(`Admin ban hành Sứ mệnh mới: "${newQ.title}"`);
+    showToast(`Đã thêm sứ mệnh thành công!`, "success");
+
+    try {
+      await supabase.from("quests").insert({
+        id: newQ.id,
+        title: newQ.title,
+        category: newQ.category,
+        xp: newQ.xp,
+        completed: newQ.completed,
+        isCustom: newQ.isCustom,
+        description: newQ.description || null
+      });
+    } catch (err) {
+      console.error("Error creating quest in Supabase:", err);
+    }
+  };
+
+  const handleAdminDeleteQuest = async (id: string) => {
+    setQuests((prev) => prev.filter((q) => q.id !== id));
+    addSystemLog(`Admin xóa Sứ mệnh ID: ${id}`);
+    showToast(`Đã xóa sứ mệnh thành công!`, "success");
+
+    try {
+      await supabase.from("quests").delete().eq("id", id);
+    } catch (err) {
+      console.error("Error deleting quest from Supabase:", err);
+    }
+  };
+
+  const handleAdminUpdateQuest = async (id: string, updatedPayload: Omit<Quest, "id">) => {
+    setQuests((prev) =>
+      prev.map((q) => (q.id === id ? { ...q, ...updatedPayload } : q))
+    );
+    addSystemLog(`Admin cập nhật Sứ mệnh ID: ${id}`);
+    showToast(`Đã cập nhật sứ mệnh thành công!`, "success");
+
+    try {
+      await supabase.from("quests").update({
+        title: updatedPayload.title,
+        category: updatedPayload.category,
+        xp: updatedPayload.xp,
+        completed: updatedPayload.completed,
+        isCustom: updatedPayload.isCustom,
+        description: updatedPayload.description || null
+      }).eq("id", id);
+    } catch (err) {
+      console.error("Error updating quest in Supabase:", err);
+    }
+  };
+
+  // GOOD DEEDS CRUD HANDLERS
+  const handleAdminAddGoodDeed = async (deedPayload: Omit<GoodDeed, "id" | "timestamp">) => {
+    const newDeed: GoodDeed = {
+      ...deedPayload,
+      id: "deed_cust_" + Date.now().toString(),
+      timestamp: new Date().toISOString().replace("T", " ").substring(0, 16)
+    };
+    setGoodDeeds((prev) => [newDeed, ...prev]);
+    addSystemLog(`Admin ghi nhận Việc tốt cho học sinh: ${newDeed.studentName}`);
+    showToast(`Đã ghi nhận việc tốt thành công!`, "success");
+
+    try {
+      await supabase.from("good_deeds").insert({
+        id: newDeed.id,
+        studentName: newDeed.studentName,
+        studentClass: newDeed.studentClass,
+        category: newDeed.category,
+        description: newDeed.description,
+        timestamp: newDeed.timestamp,
+        status: newDeed.status,
+        xpAwarded: newDeed.xpAwarded,
+        fileData: newDeed.fileData || null,
+        fileName: newDeed.fileName || null
+      });
+    } catch (err) {
+      console.error("Error adding good deed to Supabase:", err);
+    }
+  };
+
+  const handleAdminDeleteGoodDeed = async (id: string) => {
+    setGoodDeeds((prev) => prev.filter((d) => d.id !== id));
+    addSystemLog(`Admin xóa Việc tốt ID: ${id}`);
+    showToast(`Đã xóa việc tốt thành công!`, "success");
+
+    try {
+      await supabase.from("good_deeds").delete().eq("id", id);
+    } catch (err) {
+      console.error("Error deleting good deed from Supabase:", err);
+    }
+  };
+
+  const handleAdminUpdateGoodDeed = async (id: string, updatedPayload: Partial<GoodDeed>) => {
+    setGoodDeeds((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, ...updatedPayload } : d))
+    );
+    addSystemLog(`Admin cập nhật Việc tốt ID: ${id}`);
+    showToast(`Đã cập nhật việc tốt thành công!`, "success");
+
+    try {
+      await supabase.from("good_deeds").update({
+        studentName: updatedPayload.studentName,
+        studentClass: updatedPayload.studentClass,
+        category: updatedPayload.category,
+        description: updatedPayload.description,
+        status: updatedPayload.status,
+        xpAwarded: updatedPayload.xpAwarded,
+        fileData: updatedPayload.fileData || null,
+        fileName: updatedPayload.fileName || null
+      }).eq("id", id);
+    } catch (err) {
+      console.error("Error updating good deed in Supabase:", err);
+    }
+  };
+
   const handleAdminAdjustStudentXp = async (name: string, newXp: number) => {
     if (name === profile.name) {
       setProfile((prev) => {
@@ -862,6 +1152,8 @@ export default function App() {
           {/* Primary Header Component */}
           <Header
             currentRole={currentRole}
+            isGlobalEditMode={isGlobalEditMode}
+            onToggleGlobalEditMode={handleToggleGlobalEditMode}
             onRoleChange={(role) => {
               setCurrentRole(role);
               addSystemLog(`Chuyển đổi vai trò sang: ${role}`);
@@ -1233,6 +1525,10 @@ export default function App() {
               profile={profile}
               onAwardXp={awardXp}
               showToast={showToast}
+              isGlobalEditMode={isGlobalEditMode}
+              onAddQuiz={handleAdminAddQuiz}
+              onUpdateQuiz={handleAdminUpdateQuiz}
+              onDeleteQuiz={handleAdminDeleteQuiz}
             />
           )}
 
@@ -1242,6 +1538,10 @@ export default function App() {
               clubs={clubs}
               profile={profile}
               clubMessages={clubMessages}
+              isGlobalEditMode={isGlobalEditMode}
+              onAddClub={handleAdminAddClub}
+              onUpdateClub={handleAdminUpdateClub}
+              onDeleteClub={handleAdminDeleteClub}
               onJoinClub={async (clubName) => {
                 const alreadyJoined = profile.joinedClubs.includes(clubName);
                 if (alreadyJoined) return;
@@ -1353,7 +1653,14 @@ export default function App() {
 
           {/* ==================== MODULE 5: KHO HỌC LIỆU SỐ ==================== */}
           {activeModule === 5 && (
-            <LearningLibrary showToast={showToast} />
+            <LearningLibrary
+              materials={materials}
+              showToast={showToast}
+              isGlobalEditMode={isGlobalEditMode}
+              onAddMaterial={handleAdminAddMaterial}
+              onUpdateMaterial={handleAdminUpdateMaterial}
+              onDeleteMaterial={handleAdminDeleteMaterial}
+            />
           )}
 
           {/* ==================== MODULE 6: THỬ THÁCH CÔNG DÂN ==================== */}
@@ -1595,6 +1902,22 @@ export default function App() {
               onAddQuiz={handleAdminAddQuiz}
               onDeleteQuiz={handleAdminDeleteQuiz}
               onUpdateQuiz={handleAdminUpdateQuiz}
+              quests={quests}
+              onAddQuest={handleAdminAddQuest}
+              onDeleteQuest={handleAdminDeleteQuest}
+              onUpdateQuest={handleAdminUpdateQuest}
+              clubs={clubs}
+              onAddClub={handleAdminAddClub}
+              onDeleteClub={handleAdminDeleteClub}
+              onUpdateClub={handleAdminUpdateClub}
+              materials={materials}
+              onAddMaterial={handleAdminAddMaterial}
+              onDeleteMaterial={handleAdminDeleteMaterial}
+              onUpdateMaterial={handleAdminUpdateMaterial}
+              goodDeeds={goodDeeds}
+              onAddGoodDeed={handleAdminAddGoodDeed}
+              onDeleteGoodDeed={handleAdminDeleteGoodDeed}
+              onUpdateGoodDeed={handleAdminUpdateGoodDeed}
               students={[
                 profile,
                 { name: "Nguyễn Linh", className: "8A1", xp: 3450, level: 14, completedQuests: [], joinedClubs: [], unlockedBadges: [], goodDeedsCount: 22 },

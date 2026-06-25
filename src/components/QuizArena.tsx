@@ -1,16 +1,71 @@
 import React, { useState, useEffect } from "react";
 import { QuizQuestion, StudentProfile } from "../types";
-import { Bell, ArrowRight, RefreshCw, Sparkles, Scale, AlertCircle, Shuffle, CheckCircle, Award } from "lucide-react";
+import { Bell, ArrowRight, RefreshCw, Sparkles, Scale, AlertCircle, Shuffle, CheckCircle, Award, Plus, Edit, Trash, X } from "lucide-react";
 
 interface QuizArenaProps {
   quizzes: QuizQuestion[];
   profile: StudentProfile;
   onAwardXp: (xp: number, badgeIdToUnlock?: string) => void;
   showToast: (message: string, type: "success" | "error") => void;
+  isGlobalEditMode?: boolean;
+  onAddQuiz?: (quiz: Omit<QuizQuestion, "id">) => void;
+  onUpdateQuiz?: (id: string, updated: Omit<QuizQuestion, "id">) => void;
+  onDeleteQuiz?: (id: string) => void;
 }
 
-export const QuizArena: React.FC<QuizArenaProps> = ({ quizzes, profile, onAwardXp, showToast }) => {
+export const QuizArena: React.FC<QuizArenaProps> = ({ quizzes, profile, onAwardXp, showToast, isGlobalEditMode, onAddQuiz, onUpdateQuiz, onDeleteQuiz }) => {
   const [activeSubGame, setActiveSubGame] = useState<"quiz" | "wheel" | "court" | "match">("quiz");
+
+  // ==================== EDIT FORM STATE ====================
+  const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
+  const [formQuestion, setFormQuestion] = useState("");
+  const [formOptions, setFormOptions] = useState<string[]>(["", "", "", ""]);
+  const [formAnswer, setFormAnswer] = useState<number>(0);
+  const [formXp, setFormXp] = useState<number>(50);
+
+  const handleEditQuizClick = (q: QuizQuestion) => {
+    setEditingQuizId(q.id);
+    setFormQuestion(q.question);
+    setFormOptions([...q.options]);
+    setFormAnswer(q.answer);
+    setFormXp(q.xp);
+    // Scroll to form
+    const el = document.getElementById("quiz-form-container");
+    if (el) el.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingQuizId(null);
+    setFormQuestion("");
+    setFormOptions(["", "", "", ""]);
+    setFormAnswer(0);
+    setFormXp(50);
+  };
+
+  const handleSaveQuizSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formQuestion.trim() || formOptions.some(opt => !opt.trim())) {
+      showToast("Vui lòng điền đầy đủ câu hỏi và 4 đáp án lựa chọn!", "error");
+      return;
+    }
+
+    const payload = {
+      question: formQuestion.trim(),
+      options: formOptions.map(o => o.trim()),
+      answer: formAnswer,
+      xp: formXp
+    };
+
+    if (editingQuizId) {
+      if (onUpdateQuiz) onUpdateQuiz(editingQuizId, payload);
+      showToast("Cập nhật câu hỏi thành công!", "success");
+    } else {
+      if (onAddQuiz) onAddQuiz(payload);
+      showToast("Thêm câu hỏi mới thành công!", "success");
+    }
+
+    handleCancelEdit();
+  };
 
   // ==================== 1. GOLDEN BELL QUIZ STATE ====================
   const [quizIdx, setQuizIdx] = useState(0);
@@ -349,6 +404,167 @@ export const QuizArena: React.FC<QuizArenaProps> = ({ quizzes, profile, onAwardX
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Quick Edit Quizzes Interface */}
+      {activeSubGame === "quiz" && isGlobalEditMode && (
+        <div id="quiz-management-deck" className="bg-slate-950/60 border border-purple-500/30 rounded-3xl p-5 space-y-5 text-left mt-6">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h4 className="font-bold text-xs text-purple-300 flex items-center gap-1.5 uppercase tracking-wider">
+              ⚙️ Danh sách câu hỏi trắc nghiệm ({quizzes.length})
+            </h4>
+            <a href="#quiz-form-container" className="text-[10px] text-cyan-400 font-extrabold hover:underline flex items-center gap-0.5">
+              <Plus className="w-3 h-3" /> Thêm câu hỏi nhanh
+            </a>
+          </div>
+
+          {/* List of quizzes with edit/delete actions */}
+          <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+            {quizzes.map((q, idx) => (
+              <div key={q.id} className="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 flex justify-between items-start gap-4">
+                <div className="space-y-1 text-xs">
+                  <p className="font-bold text-slate-200">
+                    <span className="text-purple-400">Câu {idx + 1}:</span> {q.question}
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] text-slate-400">
+                    {q.options.map((opt, oIdx) => (
+                      <span key={oIdx} className={oIdx === q.answer ? "text-emerald-400 font-bold" : ""}>
+                        {String.fromCharCode(65 + oIdx)}. {opt}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-cyan-400 font-bold uppercase mt-1">+{q.xp} XP • ID: {q.id}</p>
+                </div>
+
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleEditQuizClick(q)}
+                    className="p-1.5 bg-slate-950 hover:bg-purple-950 text-purple-400 hover:text-purple-300 rounded-lg border border-slate-800 hover:border-purple-800 transition-all cursor-pointer shadow-sm"
+                    title="Sửa câu hỏi này"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Bạn có chắc chắn muốn xóa câu hỏi "${q.question.substring(0, 30)}..."?`)) {
+                        if (onDeleteQuiz) onDeleteQuiz(q.id);
+                      }
+                    }}
+                    className="p-1.5 bg-slate-950 hover:bg-rose-950 text-rose-400 hover:text-rose-300 rounded-lg border border-slate-800 hover:border-rose-800 transition-all cursor-pointer shadow-sm"
+                    title="Xóa câu hỏi này"
+                  >
+                    <Trash className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Add/Edit Form */}
+          <form id="quiz-form-container" onSubmit={handleSaveQuizSubmit} className="p-4 bg-slate-900/60 border border-slate-850 rounded-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-850 pb-2">
+              <h5 className="font-bold text-xs text-slate-300 flex items-center gap-1">
+                {editingQuizId ? <Edit className="w-4 h-4 text-purple-400" /> : <Plus className="w-4 h-4 text-emerald-400" />}
+                {editingQuizId ? "CẬP NHẬT CÂU HỎI TRẮC NGHIỆM" : "THÊM CÂU HỎI TRẮC NGHIỆM MỚI"}
+              </h5>
+              {editingQuizId && (
+                <button type="button" onClick={handleCancelEdit} className="text-slate-500 hover:text-white">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="text-[10px] text-slate-400 font-bold block" htmlFor="form-question-text">Nội dung câu hỏi</label>
+                <textarea
+                  id="form-question-text"
+                  value={formQuestion}
+                  onChange={(e) => setFormQuestion(e.target.value)}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-850 rounded-xl text-slate-100 outline-none focus:border-purple-500 leading-relaxed"
+                  placeholder="Nhập nội dung câu hỏi trắc nghiệm giáo dục số..."
+                  rows={2}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {formOptions.map((opt, oIdx) => (
+                  <div key={oIdx} className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold block flex items-center justify-between">
+                      <span>Đáp án {String.fromCharCode(65 + oIdx)}</span>
+                      <input
+                        type="radio"
+                        name="correct-answer-radio"
+                        checked={formAnswer === oIdx}
+                        onChange={() => setFormAnswer(oIdx)}
+                        className="text-emerald-500 focus:ring-emerald-500"
+                      />
+                    </label>
+                    <input
+                      type="text"
+                      value={opt}
+                      onChange={(e) => {
+                        const newOpts = [...formOptions];
+                        newOpts[oIdx] = e.target.value;
+                        setFormOptions(newOpts);
+                      }}
+                      className="w-full p-2 bg-slate-950 border border-slate-850 rounded-lg text-slate-100 outline-none focus:border-purple-500"
+                      placeholder={`Đáp án ${String.fromCharCode(65 + oIdx)}...`}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold block" htmlFor="form-correct-ans-select">Đáp án đúng</label>
+                  <select
+                    id="form-correct-ans-select"
+                    value={formAnswer}
+                    onChange={(e) => setFormAnswer(Number(e.target.value))}
+                    className="w-full p-2 bg-slate-950 border border-slate-850 rounded-lg text-slate-200 outline-none"
+                  >
+                    <option value={0}>A (Đáp án 1)</option>
+                    <option value={1}>B (Đáp án 2)</option>
+                    <option value={2}>C (Đáp án 3)</option>
+                    <option value={3}>D (Đáp án 4)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold block" htmlFor="form-xp-input">Năng lượng đạo đức (XP)</label>
+                  <input
+                    type="number"
+                    id="form-xp-input"
+                    value={formXp}
+                    onChange={(e) => setFormXp(Number(e.target.value))}
+                    className="w-full p-2 bg-slate-950 border border-slate-850 rounded-lg text-slate-200 outline-none"
+                    min={10}
+                    max={500}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="submit"
+                className="flex-1 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-extrabold rounded-xl text-xs shadow-md transition-all cursor-pointer"
+              >
+                {editingQuizId ? "CẬP NHẬT & LƯU THAY ĐỔI" : "TẠO CÂU HỎI MỚI"}
+              </button>
+              {editingQuizId && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl text-xs"
+                >
+                  HỦY
+                </button>
+              )}
+            </div>
+          </form>
         </div>
       )}
 
