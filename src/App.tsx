@@ -461,7 +461,13 @@ export default function App() {
     addSystemLog("Học sinh Trần Minh Anh tưới cây rèn luyện hằng ngày.");
   };
 
-  const handlePostDeed = async (category: "Đạo đức" | "Pháp luật" | "Kỹ năng" | "Văn minh", desc: string) => {
+  const handlePostDeed = async (
+    category: "Đạo đức" | "Pháp luật" | "Kỹ năng" | "Văn minh", 
+    desc: string,
+    youtubeUrl?: string,
+    fileData?: string,
+    fileName?: string
+  ) => {
     const newDeed: GoodDeed = {
       id: "gd_" + Date.now().toString(),
       studentName: profile.name,
@@ -470,7 +476,10 @@ export default function App() {
       description: desc,
       timestamp: new Date().toISOString().replace("T", " ").substring(0, 16),
       status: "Chờ duyệt",
-      xpAwarded: 40
+      xpAwarded: 40,
+      youtubeUrl,
+      fileData,
+      fileName
     };
     setGoodDeeds((prev) => [newDeed, ...prev]);
     awardXp(40); // 40 XP instantly for writing deed
@@ -486,7 +495,10 @@ export default function App() {
         description: newDeed.description,
         timestamp: newDeed.timestamp,
         status: newDeed.status,
-        xpAwarded: newDeed.xpAwarded
+        xpAwarded: newDeed.xpAwarded,
+        youtubeUrl: newDeed.youtubeUrl || null,
+        fileData: newDeed.fileData || null,
+        fileName: newDeed.fileName || null
       });
     } catch (err) {
       console.error("Error saving good deed to Supabase:", err);
@@ -1177,14 +1189,18 @@ export default function App() {
                   console.error("Error saving club joining message to Supabase:", err);
                 }
               }}
-              onPostMessage={async (clubName, content) => {
+              onPostMessage={async (clubName, content, youtubeUrl, fileData, fileName, fileType) => {
                 const newMsg: ClubMessage = {
                   id: "msg_" + Date.now().toString(),
                   clubName,
                   sender: profile.name,
                   role: `Lớp ${profile.className}`,
                   content,
-                  timestamp: new Date().toISOString().replace("T", " ").substring(0, 16)
+                  timestamp: new Date().toISOString().replace("T", " ").substring(0, 16),
+                  youtubeUrl,
+                  fileData,
+                  fileName,
+                  fileType
                 };
                 setClubMessages((prev) => [...prev, newMsg]);
 
@@ -1195,7 +1211,11 @@ export default function App() {
                     sender: newMsg.sender,
                     role: newMsg.role,
                     content: newMsg.content,
-                    timestamp: newMsg.timestamp
+                    timestamp: newMsg.timestamp,
+                    youtubeUrl: newMsg.youtubeUrl || null,
+                    fileData: newMsg.fileData || null,
+                    fileName: newMsg.fileName || null,
+                    fileType: newMsg.fileType || null
                   });
                 } catch (err) {
                   console.error("Error saving club message to Supabase:", err);

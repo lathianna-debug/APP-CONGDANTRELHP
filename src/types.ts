@@ -25,6 +25,9 @@ export interface GoodDeed {
   timestamp: string;
   status: "Chờ duyệt" | "Đã duyệt" | "Đã từ chối";
   xpAwarded: number;
+  youtubeUrl?: string;
+  fileData?: string; // base64 attachment
+  fileName?: string;
 }
 
 export interface Quest {
@@ -35,6 +38,9 @@ export interface Quest {
   completed: boolean;
   isCustom?: boolean; // created by teacher
   description?: string;
+  youtubeUrl?: string;
+  fileData?: string;
+  fileName?: string;
 }
 
 export interface Club {
@@ -44,6 +50,8 @@ export interface Club {
   description: string;
   membersCount: number;
   weeklyGoal: string;
+  youtubeUrl?: string;
+  fileData?: string; // club banner or image
 }
 
 export interface ClubMessage {
@@ -53,6 +61,10 @@ export interface ClubMessage {
   role: string;
   content: string;
   timestamp: string;
+  youtubeUrl?: string;
+  fileData?: string; // image or file base64
+  fileName?: string;
+  fileType?: "image" | "document";
 }
 
 export interface Scenario {
@@ -87,4 +99,16 @@ export interface Badge {
   icon: string;
   description: string;
   criteria: string;
+}
+
+export interface LearningMaterial {
+  id: string;
+  title: string;
+  type: string;
+  size: string;
+  desc: string;
+  color: string;
+  youtubeUrl?: string;
+  fileData?: string; // base64 document/image
+  fileName?: string;
 }

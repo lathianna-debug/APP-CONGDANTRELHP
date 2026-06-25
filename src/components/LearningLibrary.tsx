@@ -1,46 +1,29 @@
 import React, { useState } from "react";
-import { Library, Download, FileText, Check, ShieldAlert, Sparkles, AlertCircle, Info } from "lucide-react";
+import { Library, Download, FileText, Check, ShieldAlert, Sparkles, AlertCircle, Info, Play, FileDigit } from "lucide-react";
+import { LearningMaterial } from "../types";
 
 interface LearningLibraryProps {
+  materials: LearningMaterial[];
   showToast: (message: string, type: "success" | "error") => void;
 }
 
-export const LearningLibrary: React.FC<LearningLibraryProps> = ({ showToast }) => {
+export const LearningLibrary: React.FC<LearningLibraryProps> = ({ materials, showToast }) => {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [activeTab, setActiveTab] = useState<"library" | "infographic">("library");
   const [activeHotspot, setActiveHotspot] = useState<string | null>(null);
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
 
-  const materials = [
-    {
-      id: "mat1",
-      title: "Cẩm nang Sống văn minh trên môi trường mạng",
-      type: "PDF Sổ tay",
-      size: "2.4 MB",
-      desc: "Hướng dẫn nhận diện tin giả, phòng chống bôi nhọ, bảo vệ thông tin cá nhân và quy tắc lịch thiệp ứng xử.",
-      color: "from-yellow-400 to-amber-500"
-    },
-    {
-      id: "mat2",
-      title: "Bản đồ tư duy Luật An ninh mạng giản lược",
-      type: "PNG Mindmap",
-      size: "4.1 MB",
-      desc: "Tóm tắt trực quan các điều khoản cấm và chế tài xử lý vi phạm không gian mạng dành riêng cho khối THCS.",
-      color: "from-cyan-400 to-indigo-500"
-    },
-    {
-      id: "mat3",
-      title: "Truyện tranh: Những hiệp sĩ xanh bảo vệ môi trường",
-      type: "PDF Truyện",
-      size: "8.5 MB",
-      desc: "Bài học giáo dục đạo đức bảo vệ đa dạng sinh học và lối sống xanh, chống rác thải nhựa tại căng tin trường học.",
-      color: "from-emerald-400 to-teal-500"
-    }
-  ];
+  const getYoutubeId = (url?: string) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
 
-  const handleDownload = (id: string, title: string) => {
+  const handleDownload = (mat: LearningMaterial) => {
     if (downloadingId) return;
-    setDownloadingId(id);
+    setDownloadingId(mat.id);
     setDownloadProgress(0);
 
     const interval = setInterval(() => {
@@ -49,7 +32,15 @@ export const LearningLibrary: React.FC<LearningLibraryProps> = ({ showToast }) =
           clearInterval(interval);
           setTimeout(() => {
             setDownloadingId(null);
-            showToast(`Đã tải xuống thành công tài liệu: "${title}"!`, "success");
+            if (mat.fileData) {
+              const link = document.createElement("a");
+              link.href = mat.fileData;
+              link.download = mat.fileName || `${mat.title.toLowerCase().replace(/\s+/g, "_")}.pdf`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }
+            showToast(`Đã tải xuống thành công tài liệu: "${mat.title}"!`, "success");
           }, 300);
           return 100;
         }
@@ -130,16 +121,41 @@ export const LearningLibrary: React.FC<LearningLibraryProps> = ({ showToast }) =
                 className="bg-slate-900/40 rounded-3xl border border-slate-800 overflow-hidden shadow-xl hover:border-purple-500/30 transition-all flex flex-col justify-between"
               >
                 {/* Visual header */}
-                <div className={`h-24 bg-gradient-to-tr ${mat.color} flex flex-col items-center justify-center text-slate-950 text-center p-3 relative`}>
+                <div className={`h-24 bg-gradient-to-tr ${mat.color || "from-purple-500 to-indigo-600"} flex flex-col items-center justify-center text-slate-950 text-center p-3 relative`}>
                   <FileText className="w-6 h-6 mb-1 opacity-85" />
                   <span className="font-black text-xs tracking-wider uppercase">{mat.type}</span>
-                  <span className="absolute bottom-1 right-2 text-[9px] font-mono opacity-70 font-semibold">{mat.size}</span>
+                  <span className="absolute bottom-1 right-2 text-[9px] font-mono opacity-70 font-semibold">{mat.size || "Liên kết"}</span>
                 </div>
 
                 <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                   <div className="space-y-1.5">
                     <h4 className="font-extrabold text-slate-200 text-xs leading-snug">{mat.title}</h4>
                     <p className="text-[11px] text-slate-400 leading-relaxed">{mat.desc}</p>
+                    
+                    {/* YouTube Video Frame Embed */}
+                    {mat.youtubeUrl && getYoutubeId(mat.youtubeUrl) && (
+                      <div className="mt-2.5 overflow-hidden rounded-xl border border-slate-800">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${getYoutubeId(mat.youtubeUrl)}`}
+                          title="YouTube video player"
+                          className="w-full aspect-video"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        ></iframe>
+                      </div>
+                    )}
+
+                    {/* Image Preview */}
+                    {mat.fileData && mat.fileData.startsWith("data:image/") && (
+                      <div className="w-full h-28 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 mt-2">
+                        <img 
+                          src={mat.fileData} 
+                          alt={mat.title} 
+                          className="w-full h-full object-cover" 
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {downloadingId === mat.id ? (
@@ -159,11 +175,12 @@ export const LearningLibrary: React.FC<LearningLibraryProps> = ({ showToast }) =
                   ) : (
                     /* Download button */
                     <button
-                      onClick={() => handleDownload(mat.id, mat.title)}
+                      onClick={() => handleDownload(mat)}
                       disabled={downloadingId !== null}
                       className="w-full bg-slate-950 border border-slate-800 hover:border-purple-500/50 hover:bg-slate-900/40 text-slate-200 font-bold py-2 rounded-xl text-[11px] transition-all flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      <Download className="w-3.5 h-3.5 text-purple-400" /> TẢI FILE MIỄN PHÍ
+                      <Download className="w-3.5 h-3.5 text-purple-400" /> 
+                      {mat.fileData ? "TẢI ĐÍNH KÈM THÀNH CÔNG" : "TẢI FILE MIỄN PHÍ"}
                     </button>
                   )}
                 </div>

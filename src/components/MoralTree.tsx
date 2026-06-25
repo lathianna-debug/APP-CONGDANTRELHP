@@ -1,11 +1,17 @@
 import React, { useState } from "react";
 import { StudentProfile, GoodDeed } from "../types";
-import { Sprout, BookOpen, Plus, Heart, Calendar, Clock, Star, TreePine } from "lucide-react";
+import { Sprout, BookOpen, Plus, Heart, Calendar, Clock, Star, TreePine, Video, Image as ImageIcon, Paperclip, X } from "lucide-react";
 
 interface MoralTreeProps {
   profile: StudentProfile;
   goodDeeds: GoodDeed[];
-  onAddGoodDeed: (category: "Đạo đức" | "Pháp luật" | "Kỹ năng" | "Văn minh", desc: string) => void;
+  onAddGoodDeed: (
+    category: "Đạo đức" | "Pháp luật" | "Kỹ năng" | "Văn minh", 
+    desc: string,
+    youtubeUrl?: string,
+    fileData?: string,
+    fileName?: string
+  ) => void;
   onWaterTree: () => void;
   lastWatered: string | null;
 }
@@ -19,12 +25,42 @@ export const MoralTree: React.FC<MoralTreeProps> = ({
 }) => {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<"Đạo đức" | "Pháp luật" | "Kỹ năng" | "Văn minh">("Đạo đức");
+  
+  // Good deeds media upload state
+  const [deedYoutube, setDeedYoutube] = useState("");
+  const [deedFile, setDeedFile] = useState("");
+  const [deedFileName, setDeedFileName] = useState("");
+  const [showAttach, setShowAttach] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setDeedFile(reader.result);
+        setDeedFileName(file.name);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!description.trim()) return;
-    onAddGoodDeed(category, description);
+    onAddGoodDeed(
+      category, 
+      description, 
+      deedYoutube.trim() || undefined, 
+      deedFile || undefined, 
+      deedFileName || undefined
+    );
     setDescription("");
+    setDeedYoutube("");
+    setDeedFile("");
+    setDeedFileName("");
+    setShowAttach(false);
   };
 
   // Determine tree stage based on XP
@@ -225,7 +261,7 @@ export const MoralTree: React.FC<MoralTreeProps> = ({
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3.5">
+          <form onSubmit={handleSubmit} className="space-y-3.5 text-left">
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phân loại việc làm tốt</label>
               <div className="grid grid-cols-4 gap-2">
@@ -256,6 +292,80 @@ export const MoralTree: React.FC<MoralTreeProps> = ({
               />
             </div>
 
+            {/* Media Proof Attachments */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Đính kèm bằng chứng (Không bắt buộc)</span>
+                <button
+                  type="button"
+                  onClick={() => setShowAttach(!showAttach)}
+                  className="text-[10px] text-cyan-400 font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <Paperclip className="w-3.5 h-3.5" />
+                  {showAttach ? "Thu gọn" : "Thêm Ảnh/Youtube"}
+                </button>
+              </div>
+
+              {/* Upload controls preview */}
+              {(deedYoutube || deedFile) && (
+                <div className="p-2 bg-slate-950 border border-slate-850 rounded-xl text-[10px] text-slate-300 space-y-1 relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeedYoutube("");
+                      setDeedFile("");
+                      setDeedFileName("");
+                    }}
+                    className="absolute top-1.5 right-1.5 text-slate-500 hover:text-rose-400 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  {deedYoutube && (
+                    <p className="truncate text-rose-400 font-semibold flex items-center gap-1">
+                      <Video className="w-3 h-3" /> Youtube: {deedYoutube}
+                    </p>
+                  )}
+                  {deedFile && (
+                    <p className="truncate text-cyan-400 font-semibold flex items-center gap-1">
+                      <ImageIcon className="w-3 h-3" /> Ảnh minh chứng: {deedFileName}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {showAttach && (
+                <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-3 text-xs">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="deed-yt-url">Đường link Youtube (nếu có)</label>
+                    <input
+                      type="url"
+                      id="deed-yt-url"
+                      value={deedYoutube}
+                      onChange={(e) => setDeedYoutube(e.target.value)}
+                      placeholder="Dán link youtube rèn luyện..."
+                      className="w-full text-[10px] p-2 bg-slate-900 border border-slate-800 rounded outline-none text-white focus:border-rose-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Ảnh chụp bằng chứng (Ví dụ: chụp dọn dẹp, tưới cây...)</label>
+                    <input
+                      type="file"
+                      id="deed-file-upload"
+                      onChange={handleFileChange}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="deed-file-upload"
+                      className="w-full text-center text-[10px] p-2 bg-slate-900 border border-slate-800 rounded outline-none text-slate-400 hover:text-white block cursor-pointer truncate"
+                    >
+                      {deedFileName ? `Đã chọn: ${deedFileName}` : "Tải ảnh từ thiết bị..."}
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               type="submit"
               className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-black text-xs py-2.5 rounded-xl transition-all shadow-lg shadow-pink-500/20 flex items-center justify-center gap-1.5"
@@ -265,45 +375,65 @@ export const MoralTree: React.FC<MoralTreeProps> = ({
           </form>
 
           {/* Historical Logs with Scroll */}
-          <div className="space-y-2.5">
+          <div className="space-y-2.5 text-left">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800 pb-1.5">
               Nhật ký cá nhân vừa ghi chép
             </p>
             <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
               {goodDeeds
                 .filter((d) => d.studentName === profile.name || d.studentName === "Trần Minh Anh")
-                .map((deed) => (
-                  <div key={deed.id} className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800 hover:border-slate-700 transition-colors">
-                    <div className="flex justify-between items-center text-[10px]">
-                      <span className="font-bold text-cyan-400 flex items-center gap-1">
-                        <Star className="w-3 h-3" /> {deed.category}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                            deed.status === "Đã duyệt"
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                              : deed.status === "Đã từ chối"
-                              ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                              : "bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse"
-                          }`}
-                        >
-                          {deed.status}
+                .map((deed) => {
+                  const hasYt = deed.youtubeUrl && deed.youtubeUrl.includes("youtu");
+                  return (
+                    <div key={deed.id} className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800 hover:border-slate-700 transition-colors space-y-2">
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="font-bold text-cyan-400 flex items-center gap-1">
+                          <Star className="w-3 h-3" /> {deed.category}
                         </span>
-                        <span className="text-emerald-400 font-bold">+{deed.xpAwarded} XP</span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                              deed.status === "Đã duyệt"
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                : deed.status === "Đã từ chối"
+                                ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                                : "bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse"
+                            }`}
+                          >
+                            {deed.status}
+                          </span>
+                          <span className="text-emerald-400 font-bold">+{deed.xpAwarded} XP</span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-300 mt-1.5 leading-relaxed">{deed.description}</p>
+                      
+                      {/* Attached media display */}
+                      {deed.fileData && (
+                        <div className="mt-1 rounded-xl overflow-hidden border border-slate-800/80 bg-slate-950 max-h-32">
+                          <img src={deed.fileData} alt="Bằng chứng" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                        </div>
+                      )}
+                      
+                      {hasYt && (
+                        <div className="mt-1 flex items-center gap-1 text-[10px] text-rose-400">
+                          <Video className="w-3.5 h-3.5" />
+                          <a href={deed.youtubeUrl} target="_blank" rel="noreferrer" className="underline font-bold">
+                            Xem video bằng chứng trên Youtube
+                          </a>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-3 text-[9px] text-slate-500 mt-1 font-mono">
+                        <span className="flex items-center gap-0.5">
+                          <Calendar className="w-2.5 h-2.5" /> {deed.timestamp.split(" ")[0]}
+                        </span>
+                        <span className="flex items-center gap-0.5">
+                          <Clock className="w-2.5 h-2.5" /> {deed.timestamp.split(" ")[1] || "09:00"}
+                        </span>
                       </div>
                     </div>
-                    <p className="text-[11px] text-slate-300 mt-1.5 leading-relaxed">{deed.description}</p>
-                    <div className="flex items-center gap-3 text-[9px] text-slate-500 mt-1 font-mono">
-                      <span className="flex items-center gap-0.5">
-                        <Calendar className="w-2.5 h-2.5" /> {deed.timestamp.split(" ")[0]}
-                      </span>
-                      <span className="flex items-center gap-0.5">
-                        <Clock className="w-2.5 h-2.5" /> {deed.timestamp.split(" ")[1] || "09:00"}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
         </div>
