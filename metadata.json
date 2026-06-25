@@ -1,0 +1,6 @@
+{
+  "name": "Sân Chơi Giáo Dục Số LHP",
+  "description": "Cổng thông tin, rèn luyện kỹ năng sống, đạo đức và pháp luật trường THCS Lê Hồng Phong tích hợp Trợ lý AI",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
